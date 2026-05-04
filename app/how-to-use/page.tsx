@@ -1,11 +1,19 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function HowToUsePage(): React.JSX.Element {
   return (
     <main className="min-h-screen bg-sky-50/60 px-4 py-6 md:px-8 lg:px-10">
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <img src="/profitscope-logo.png" alt="ProfitScope" className="h-[90px] w-auto" />
+          <Image
+            src="/profitscope-logo.png"
+            alt="ProfitScope"
+            width={420}
+            height={90}
+            className="h-[90px] w-auto"
+            priority
+          />
           <h1 className="mt-2 text-2xl font-bold text-slate-900">ProfitScope 使い方</h1>
           <p className="mt-2 text-sm text-slate-600">
             このページでは、入力手順・CSV取込・税計算モード・グラフの見方をまとめています。

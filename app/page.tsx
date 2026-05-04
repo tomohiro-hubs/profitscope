@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   CostBreakdownChart,
@@ -744,7 +745,14 @@ export default function DashboardPage(): React.JSX.Element {
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <img src="/profitscope-logo.png" alt="ProfitScope" className="h-[90px] w-auto" />
+              <Image
+                src="/profitscope-logo.png"
+                alt="ProfitScope"
+                width={420}
+                height={90}
+                className="h-[90px] w-auto"
+                priority
+              />
               <h1 className="mt-2 text-2xl font-bold text-slate-900">ProfitScope ダッシュボード</h1>
               <p className="mt-1 text-sm text-slate-600">
                 会計年度 {annualStatementForCalc.fiscalYear} の財務状況をリアルタイムで可視化
