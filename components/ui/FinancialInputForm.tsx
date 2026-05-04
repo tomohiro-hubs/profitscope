@@ -106,7 +106,7 @@ export function FinancialInputForm({
   const [draft, setDraft] = useState<DraftItem>({
     name: ACCOUNT_NAME_OPTIONS[0] ?? "",
     category: applyAutoCategory(ACCOUNT_NAME_OPTIONS[0] ?? "", "revenue"),
-    amountText: "",
+    amountText: "0",
   });
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
@@ -126,7 +126,7 @@ export function FinancialInputForm({
     setDraft({
       name: ACCOUNT_NAME_OPTIONS[0] ?? "",
       category: applyAutoCategory(ACCOUNT_NAME_OPTIONS[0] ?? "", draft.category),
-      amountText: "",
+      amountText: "0",
     });
   };
 
@@ -150,7 +150,7 @@ export function FinancialInputForm({
           <input
             type="text"
             inputMode="numeric"
-            value={investedCapital === null ? "" : investedCapital.toLocaleString("ja-JP")}
+            value={(investedCapital ?? 0).toLocaleString("ja-JP")}
             onChange={(event) => onInvestedCapitalChange(parseAmount(event.target.value))}
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             placeholder="例: 10000000"

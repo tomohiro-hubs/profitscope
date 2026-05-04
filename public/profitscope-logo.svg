@@ -1,0 +1,18 @@
+<svg width="700" height="140" viewBox="0 0 700 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B3B82"/>
+      <stop offset="100%" stop-color="#0EA5A8"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8,8)">
+    <circle cx="60" cy="60" r="54" stroke="#0B3B82" stroke-width="8"/>
+    <rect x="24" y="70" width="10" height="20" rx="2" fill="url(#g)"/>
+    <rect x="38" y="58" width="10" height="32" rx="2" fill="url(#g)"/>
+    <rect x="52" y="46" width="10" height="44" rx="2" fill="#0B3B82"/>
+    <path d="M20 72L38 54L46 60L68 38" stroke="#0EA5A8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M66 36L74 34L72 42" stroke="#0EA5A8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="150" y="94" font-size="68" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#0B3B82">Profit</text>
+  <text x="335" y="94" font-size="68" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#0EA5A8">Scope</text>
+</svg>

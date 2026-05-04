@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import {
   CostBreakdownChart,
@@ -140,6 +141,13 @@ const sanitizeAmount = (value: number | null): number => {
   }
 
   return roundToInteger(value);
+};
+
+const formatPromptPercent = (value: number | null): string => {
+  if (value === null || Number.isNaN(value)) {
+    return "-";
+  }
+  return `${value.toFixed(2)}%`;
 };
 
 const createItemId = (): string => {
@@ -355,6 +363,7 @@ export default function DashboardPage(): React.JSX.Element {
   const [costBreakdownMode, setCostBreakdownMode] = useState<"category" | "item">("category");
   const [estimatedTaxRate, setEstimatedTaxRate] = useState<number>(30);
   const [importMessage, setImportMessage] = useState<string>("");
+  const [aiPromptText, setAiPromptText] = useState<string>("");
 
   useEffect(() => {
     try {
@@ -547,6 +556,56 @@ export default function DashboardPage(): React.JSX.Element {
     return messages;
   }, [annualValidation, monthlyValidation, taxMode, estimatedTaxRate]);
 
+  const buildAiSummaryPrompt = (): string => {
+    return [
+      "以下は ProfitScope の集計結果です。経営者向けに、現状分析・課題・改善アクションを具体的に提案してください。",
+      "",
+      `会計年度: ${annualStatementForCalc.fiscalYear}`,
+      `税計算モード: ${taxMode === "manual" ? "手入力" : "概算税率"}${taxMode === "estimated" ? `（税率: ${estimatedTaxRate}%）` : ""}`,
+      `消費税手入力: ${isConsumptionTaxManual ? `ON（${formatCurrency(consumptionTaxAmount)}）` : "OFF"}`,
+      "",
+      "【損益サマリー】",
+      `売上高: ${formatCurrency(annualSummary.revenue)}`,
+      `総費用: ${formatCurrency(annualSummary.totalCost)}`,
+      `売上総利益: ${formatCurrency(annualSummary.grossProfit)}`,
+      `営業利益: ${formatCurrency(annualSummary.operatingIncome)}`,
+      `経常利益: ${formatCurrency(annualSummary.ordinaryIncome)}`,
+      `税引前当期純利益: ${formatCurrency(annualSummary.pretaxIncome)}`,
+      `当期純利益: ${formatCurrency(annualSummary.netIncome)}`,
+      "",
+      "【KPI】",
+      `売上総利益率: ${formatPromptPercent(annualKpis.grossProfitMargin)}`,
+      `営業利益率: ${formatPromptPercent(annualKpis.operatingMargin)}`,
+      `経常利益率: ${formatPromptPercent(annualKpis.ordinaryMargin)}`,
+      `当期純利益率: ${formatPromptPercent(annualKpis.netMargin)}`,
+      `費用率: ${formatPromptPercent(annualKpis.costRatio)}`,
+      `ROI: ${formatPromptPercent(annualRoi.roi)}`,
+      "",
+      "【前年比】",
+      `売上高前年比: ${formatPercent(yoy.revenue)}`,
+      `営業利益前年比: ${formatPercent(yoy.operatingIncome)}`,
+      `当期純利益前年比: ${formatPercent(yoy.netIncome)}`,
+      "",
+      "希望する出力形式:",
+      "1. 全体所見（3点）",
+      "2. 問題の根本原因（数値根拠つき）",
+      "3. すぐ実行できる施策（短期3つ）",
+      "4. 中期施策（3か月）",
+      "5. モニタリングすべきKPIと目標値",
+    ].join("\n");
+  };
+
+  const handleGenerateAiPrompt = async (): Promise<void> => {
+    const prompt = buildAiSummaryPrompt();
+    setAiPromptText(prompt);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setImportMessage("AI連携用プロンプトを生成し、クリップボードへコピーしました。");
+    } catch {
+      setImportMessage("AI連携用プロンプトを生成しました。下欄からコピーしてください。");
+    }
+  };
+
   const handleFiscalYearChange = (year: number): void => {
     setAnnualInput((prev) => ({
       ...prev,
@@ -680,18 +739,25 @@ export default function DashboardPage(): React.JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 md:px-8 lg:px-10">
+    <main className="min-h-screen bg-sky-50/60 px-4 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">ProfitScope ダッシュボード</h1>
+              <img src="/profitscope-logo.png" alt="ProfitScope" className="h-[90px] w-auto" />
+              <h1 className="mt-2 text-2xl font-bold text-slate-900">ProfitScope ダッシュボード</h1>
               <p className="mt-1 text-sm text-slate-600">
                 会計年度 {annualStatementForCalc.fiscalYear} の財務状況をリアルタイムで可視化
               </p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Link
+                href="/how-to-use"
+                className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-700 hover:bg-slate-100"
+              >
+                使い方を見る
+              </Link>
               <label className="text-sm text-slate-700">
                 ROI 利益種別
                 <select
@@ -935,6 +1001,28 @@ export default function DashboardPage(): React.JSX.Element {
             <li>{validationPolicyJa.integer}</li>
             <li>{validationPolicyJa.bounds}</li>
           </ul>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-slate-900">AI連携用プロンプト</h2>
+            <button
+              type="button"
+              onClick={handleGenerateAiPrompt}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              サマリーからプロンプト生成
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            生成時に自動コピーを試行します。失敗した場合は下のテキストを手動コピーしてください。
+          </p>
+          <textarea
+            readOnly
+            value={aiPromptText}
+            className="mt-3 h-64 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-700"
+            placeholder="「サマリーからプロンプト生成」を押すと、AIに渡せる文章をここに表示します。"
+          />
         </section>
       </div>
     </main>
