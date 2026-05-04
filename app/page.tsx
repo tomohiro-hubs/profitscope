@@ -35,8 +35,6 @@ import {
   validationPolicyJa,
 } from "@/lib/validation";
 import {
-  sampleAnnualStatement,
-  sampleMonthlyStatement,
   samplePreviousAnnualStatement,
 } from "@/data";
 import type {
@@ -52,6 +50,8 @@ import type {
 
 const STORAGE_KEY = "profitscope-dashboard-state-v1";
 const FISCAL_PERIOD_START_MONTH = 6;
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const LOGO_SRC = `${BASE_PATH}/profitscope-logo.png`;
 
 const createEmptyAnnualStatement = (): FinancialStatement => ({
   fiscalYear: new Date().getFullYear(),
@@ -82,20 +82,14 @@ const createEmptyMonthlyStatement = (): MonthlyFinancialStatement => ({
   ],
 });
 
-const initialAnnualStatement: FinancialStatement = (() => {
-  const parsed = safeParseFinancialStatement(sampleAnnualStatement);
-  return parsed.success ? parsed.data : createEmptyAnnualStatement();
-})();
+const initialAnnualStatement: FinancialStatement = createEmptyAnnualStatement();
 
 const initialPreviousAnnualStatement: FinancialStatement = (() => {
   const parsed = safeParseFinancialStatement(samplePreviousAnnualStatement);
   return parsed.success ? parsed.data : createEmptyAnnualStatement();
 })();
 
-const initialMonthlyStatement: MonthlyFinancialStatement = (() => {
-  const parsed = safeParseMonthlyFinancialStatement(sampleMonthlyStatement);
-  return parsed.success ? parsed.data : createEmptyMonthlyStatement();
-})();
+const initialMonthlyStatement: MonthlyFinancialStatement = createEmptyMonthlyStatement();
 
 const ROI_OPTIONS: Array<{ value: RoiProfitType; label: string }> = [
   { value: "operatingIncome", label: "営業利益" },
@@ -746,7 +740,7 @@ export default function DashboardPage(): React.JSX.Element {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <Image
-                src="/profitscope-logo.png"
+                src={LOGO_SRC}
                 alt="ProfitScope"
                 width={420}
                 height={90}

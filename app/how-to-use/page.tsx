@@ -1,13 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const LOGO_SRC = `${BASE_PATH}/profitscope-logo.png`;
+
 export default function HowToUsePage(): React.JSX.Element {
   return (
     <main className="min-h-screen bg-sky-50/60 px-4 py-6 md:px-8 lg:px-10">
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <Image
-            src="/profitscope-logo.png"
+            src={LOGO_SRC}
             alt="ProfitScope"
             width={420}
             height={90}
