@@ -1,0 +1,158 @@
+{
+  "fiscalYear": 2025,
+  "investedCapital": 60000000,
+  "items": [
+    {
+      "id": "rev-monthly",
+      "name": "売上高",
+      "category": "revenue",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 13800000 },
+        { "month": 2, "amount": 13200000 },
+        { "month": 3, "amount": 14800000 },
+        { "month": 4, "amount": 14000000 },
+        { "month": 5, "amount": 14200000 },
+        { "month": 6, "amount": 13600000 },
+        { "month": 7, "amount": 14700000 },
+        { "month": 8, "amount": 15100000 },
+        { "month": 9, "amount": 13900000 },
+        { "month": 10, "amount": 15500000 },
+        { "month": 11, "amount": 16000000 },
+        { "month": 12, "amount": 17000000 }
+      ]
+    },
+    {
+      "id": "cogs-monthly",
+      "name": "売上原価",
+      "category": "cogs",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 4900000 },
+        { "month": 2, "amount": 4700000 },
+        { "month": 3, "amount": 5100000 },
+        { "month": 4, "amount": 5000000 },
+        { "month": 5, "amount": 5000000 },
+        { "month": 6, "amount": 4800000 },
+        { "month": 7, "amount": 5100000 },
+        { "month": 8, "amount": 5300000 },
+        { "month": 9, "amount": 5000000 },
+        { "month": 10, "amount": 5400000 },
+        { "month": 11, "amount": 5500000 },
+        { "month": 12, "amount": 5800000 }
+      ]
+    },
+    {
+      "id": "sga-monthly",
+      "name": "販管費",
+      "category": "sga",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 3500000 },
+        { "month": 2, "amount": 3400000 },
+        { "month": 3, "amount": 3600000 },
+        { "month": 4, "amount": 3550000 },
+        { "month": 5, "amount": 3650000 },
+        { "month": 6, "amount": 3500000 },
+        { "month": 7, "amount": 3700000 },
+        { "month": 8, "amount": 3750000 },
+        { "month": 9, "amount": 3600000 },
+        { "month": 10, "amount": 3800000 },
+        { "month": 11, "amount": 3900000 },
+        { "month": 12, "amount": 4000000 }
+      ]
+    },
+    {
+      "id": "nonop-income-monthly",
+      "name": "営業外収益",
+      "category": "nonOpIncome",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 160000 },
+        { "month": 2, "amount": 150000 },
+        { "month": 3, "amount": 170000 },
+        { "month": 4, "amount": 160000 },
+        { "month": 5, "amount": 170000 },
+        { "month": 6, "amount": 150000 },
+        { "month": 7, "amount": 170000 },
+        { "month": 8, "amount": 180000 },
+        { "month": 9, "amount": 150000 },
+        { "month": 10, "amount": 180000 },
+        { "month": 11, "amount": 190000 },
+        { "month": 12, "amount": 200000 }
+      ]
+    },
+    {
+      "id": "nonop-expense-monthly",
+      "name": "営業外費用",
+      "category": "nonOpExpense",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 170000 },
+        { "month": 2, "amount": 170000 },
+        { "month": 3, "amount": 170000 },
+        { "month": 4, "amount": 170000 },
+        { "month": 5, "amount": 170000 },
+        { "month": 6, "amount": 160000 },
+        { "month": 7, "amount": 170000 },
+        { "month": 8, "amount": 170000 },
+        { "month": 9, "amount": 160000 },
+        { "month": 10, "amount": 170000 },
+        { "month": 11, "amount": 170000 },
+        { "month": 12, "amount": 180000 }
+      ]
+    },
+    {
+      "id": "extra-gain-monthly",
+      "name": "特別利益",
+      "category": "extraordinaryGain",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 0 },
+        { "month": 2, "amount": 0 },
+        { "month": 3, "amount": 0 },
+        { "month": 4, "amount": 300000 },
+        { "month": 5, "amount": 0 },
+        { "month": 6, "amount": 0 },
+        { "month": 7, "amount": 0 },
+        { "month": 8, "amount": 0 },
+        { "month": 9, "amount": 0 },
+        { "month": 10, "amount": 0 },
+        { "month": 11, "amount": 0 },
+        { "month": 12, "amount": 700000 }
+      ]
+    },
+    {
+      "id": "extra-loss-monthly",
+      "name": "特別損失",
+      "category": "extraordinaryLoss",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 0 },
+        { "month": 2, "amount": 0 },
+        { "month": 3, "amount": 0 },
+        { "month": 4, "amount": 0 },
+        { "month": 5, "amount": 0 },
+        { "month": 6, "amount": 0 },
+        { "month": 7, "amount": 200000 },
+        { "month": 8, "amount": 0 },
+        { "month": 9, "amount": 0 },
+        { "month": 10, "amount": 0 },
+        { "month": 11, "amount": 0 },
+        { "month": 12, "amount": 300000 }
+      ]
+    },
+    {
+      "id": "tax-monthly",
+      "name": "法人税等",
+      "category": "tax",
+      "monthlyAmounts": [
+        { "month": 1, "amount": 900000 },
+        { "month": 2, "amount": 850000 },
+        { "month": 3, "amount": 950000 },
+        { "month": 4, "amount": 920000 },
+        { "month": 5, "amount": 930000 },
+        { "month": 6, "amount": 900000 },
+        { "month": 7, "amount": 960000 },
+        { "month": 8, "amount": 980000 },
+        { "month": 9, "amount": 920000 },
+        { "month": 10, "amount": 1000000 },
+        { "month": 11, "amount": 1030000 },
+        { "month": 12, "amount": 1060000 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "fiscalYear": 2025,
+  "investedCapital": 60000000,
+  "items": [
+    {
+      "id": "rev-main",
+      "name": "売上高（主力事業）",
+      "category": "revenue",
+      "amount": 150000000
+    },
+    {
+      "id": "rev-sub",
+      "name": "売上高（サブ事業）",
+      "category": "revenue",
+      "amount": 25000000
+    },
+    {
+      "id": "cogs-material",
+      "name": "売上原価（材料費）",
+      "category": "cogs",
+      "amount": 42000000
+    },
+    {
+      "id": "cogs-outsourcing",
+      "name": "売上原価（外注費）",
+      "category": "cogs",
+      "amount": 18000000
+    },
+    {
+      "id": "sga-payroll",
+      "name": "販管費（人件費）",
+      "category": "sga",
+      "amount": 30000000
+    },
+    {
+      "id": "sga-rent",
+      "name": "販管費（地代家賃）",
+      "category": "sga",
+      "amount": 8000000
+    },
+    {
+      "id": "sga-ad",
+      "name": "販管費（広告宣伝費）",
+      "category": "sga",
+      "amount": 6000000
+    },
+    {
+      "id": "nonop-interest-income",
+      "name": "営業外収益（受取利息）",
+      "category": "nonOpIncome",
+      "amount": 1200000
+    },
+    {
+      "id": "nonop-misc-income",
+      "name": "営業外収益（雑収入）",
+      "category": "nonOpIncome",
+      "amount": 800000
+    },
+    {
+      "id": "nonop-interest-expense",
+      "name": "営業外費用（支払利息）",
+      "category": "nonOpExpense",
+      "amount": 2000000
+    },
+    {
+      "id": "extra-gain-sale",
+      "name": "特別利益（固定資産売却益）",
+      "category": "extraordinaryGain",
+      "amount": 1000000
+    },
+    {
+      "id": "extra-loss-disposal",
+      "name": "特別損失（固定資産除却損）",
+      "category": "extraordinaryLoss",
+      "amount": 500000
+    },
+    {
+      "id": "tax-corporate",
+      "name": "法人税等",
+      "category": "tax",
+      "amount": 14000000
+    }
+  ]
+}
