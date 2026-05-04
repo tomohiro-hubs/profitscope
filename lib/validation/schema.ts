@@ -17,6 +17,7 @@ const ACCOUNT_CATEGORIES = [
   "extraordinaryGain",
   "extraordinaryLoss",
   "tax",
+  "exclude",
 ] as const satisfies readonly AccountCategory[];
 
 const MIN_FISCAL_YEAR = 1900;

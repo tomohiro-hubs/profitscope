@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { inferCategoryByAccountName } from "@/lib/accounting";
 import type { AccountCategory, AccountItem } from "@/types";
 
 export interface FinancialInputFormProps {
@@ -21,6 +22,39 @@ const CATEGORY_OPTIONS: Array<{ value: AccountCategory; label: string }> = [
   { value: "extraordinaryGain", label: "特別利益" },
   { value: "extraordinaryLoss", label: "特別損失" },
   { value: "tax", label: "法人税等" },
+  { value: "exclude", label: "損益対象外(B/S・資金移動)" },
+];
+
+const ACCOUNT_NAME_OPTIONS: string[] = [
+  "売掛金",
+  "売上",
+  "受取利息",
+  "買掛金",
+  "借入金",
+  "会議費",
+  "外注費",
+  "給与手当",
+  "現金",
+  "交際費",
+  "広告宣伝費",
+  "預金",
+  "仕入",
+  "消耗品費",
+  "支払手数料",
+  "支払報酬料",
+  "支払利息",
+  "修繕費",
+  "水道光熱費",
+  "租税公課",
+  "その他",
+  "生活費",
+  "地代家賃",
+  "通信費",
+  "荷造運賃",
+  "普通預金",
+  "福利厚生費",
+  "法定福利費",
+  "旅費交通費",
 ];
 
 interface DraftItem {
@@ -30,13 +64,33 @@ interface DraftItem {
 }
 
 const parseAmount = (value: string): number | null => {
-  if (value.trim() === "") {
+  const normalized = value.replace(/,/g, "").trim();
+  if (normalized === "" || normalized === "-") {
     return null;
   }
 
-  const num = Number(value);
+  const num = Number(normalized);
   return Number.isFinite(num) ? Math.trunc(num) : null;
 };
+
+const normalizeAmountText = (value: string): string => {
+  const trimmed = value.replace(/,/g, "").trim();
+  if (trimmed === "") {
+    return "";
+  }
+
+  const sign = trimmed.startsWith("-") ? "-" : "";
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  if (digits === "") {
+    return sign;
+  }
+
+  const formatted = Number(digits).toLocaleString("ja-JP");
+  return `${sign}${formatted}`;
+};
+
+const applyAutoCategory = (name: string, fallback: AccountCategory): AccountCategory =>
+  inferCategoryByAccountName(name) ?? fallback;
 
 /** 財務入力フォーム。勘定科目の追加・編集・削除 UI を提供する。 */
 export function FinancialInputForm({
@@ -49,7 +103,11 @@ export function FinancialInputForm({
   onUpdateItem,
   onDeleteItem,
 }: FinancialInputFormProps): React.JSX.Element {
-  const [draft, setDraft] = useState<DraftItem>({ name: "", category: "revenue", amountText: "" });
+  const [draft, setDraft] = useState<DraftItem>({
+    name: ACCOUNT_NAME_OPTIONS[0] ?? "",
+    category: applyAutoCategory(ACCOUNT_NAME_OPTIONS[0] ?? "", "revenue"),
+    amountText: "",
+  });
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const editingItem = useMemo(() => items.find((item) => item.id === editingItemId) ?? null, [items, editingItemId]);
@@ -65,7 +123,11 @@ export function FinancialInputForm({
       amount: parseAmount(draft.amountText),
     });
 
-    setDraft({ name: "", category: draft.category, amountText: "" });
+    setDraft({
+      name: ACCOUNT_NAME_OPTIONS[0] ?? "",
+      category: applyAutoCategory(ACCOUNT_NAME_OPTIONS[0] ?? "", draft.category),
+      amountText: "",
+    });
   };
 
   return (
@@ -86,25 +148,37 @@ export function FinancialInputForm({
         <label className="block text-sm">
           <span className="mb-1 block text-slate-600">投下資本 (円)</span>
           <input
-            type="number"
-            value={investedCapital ?? ""}
+            type="text"
+            inputMode="numeric"
+            value={investedCapital === null ? "" : investedCapital.toLocaleString("ja-JP")}
             onChange={(event) => onInvestedCapitalChange(parseAmount(event.target.value))}
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             placeholder="例: 10000000"
           />
         </label>
       </div>
+      <p className="text-xs text-slate-500">決算期は 6/1〜5/31（会計年度は期末年）です。会計年度は上記入力で変更できます。</p>
 
       <div className="rounded-md border border-slate-200 p-3">
         <h3 className="text-sm font-medium text-slate-800">勘定科目を追加</h3>
         <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-4">
-          <input
-            type="text"
+          <select
             value={draft.name}
-            onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                name: event.target.value,
+                category: applyAutoCategory(event.target.value, prev.category),
+              }))
+            }
             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            placeholder="勘定科目名"
-          />
+          >
+            {ACCOUNT_NAME_OPTIONS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
           <select
             value={draft.category}
             onChange={(event) => setDraft((prev) => ({ ...prev, category: event.target.value as AccountCategory }))}
@@ -117,9 +191,15 @@ export function FinancialInputForm({
             ))}
           </select>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
             value={draft.amountText}
-            onChange={(event) => setDraft((prev) => ({ ...prev, amountText: event.target.value }))}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                amountText: normalizeAmountText(event.target.value),
+              }))
+            }
             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
             placeholder="金額(円)"
           />
@@ -132,6 +212,12 @@ export function FinancialInputForm({
           </button>
         </div>
       </div>
+      <p className="text-xs text-slate-500">
+        科目名に応じてカテゴリは自動推定されます。売掛金・借入金・預金などは「損益対象外」を選択してください。
+      </p>
+      <p className="text-xs text-amber-700">
+        注意: この欄は年次入力です。ここで入力した金額は月次推移グラフには直接反映されません。
+      </p>
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -151,15 +237,27 @@ export function FinancialInputForm({
                 <tr key={item.id} className="border-t border-slate-100">
                   <td className="px-3 py-2">
                     {isEditing ? (
-                      <input
-                        type="text"
-                        defaultValue={item.name}
+                      <select
+                        value={item.name}
                         onChange={(event) => {
                           const name = event.target.value;
-                          onUpdateItem(item.id, { name, category: item.category, amount: item.amount });
+                          onUpdateItem(item.id, {
+                            name,
+                            category: applyAutoCategory(name, item.category),
+                            amount: item.amount,
+                          });
                         }}
                         className="w-full rounded-md border border-slate-300 px-2 py-1"
-                      />
+                      >
+                        {ACCOUNT_NAME_OPTIONS.includes(item.name) ? null : (
+                          <option value={item.name}>{item.name}</option>
+                        )}
+                        {ACCOUNT_NAME_OPTIONS.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       item.name
                     )}
@@ -187,8 +285,9 @@ export function FinancialInputForm({
                   <td className="px-3 py-2 text-right">
                     {isEditing ? (
                       <input
-                        type="number"
-                        defaultValue={item.amount}
+                        type="text"
+                        inputMode="numeric"
+                        value={item.amount.toLocaleString("ja-JP")}
                         onChange={(event) => {
                           const amount = parseAmount(event.target.value);
                           onUpdateItem(item.id, { name: item.name, category: item.category, amount });

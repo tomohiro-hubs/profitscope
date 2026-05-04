@@ -20,6 +20,7 @@ const CATEGORY_LABELS: Record<AccountCategory, string> = {
   extraordinaryGain: "特別利益",
   extraordinaryLoss: "特別損失",
   tax: "法人税等",
+  exclude: "損益対象外",
 };
 
 const formatCurrency = (value: number | null): string => {

@@ -1,11 +1,108 @@
 import { describe, expect, it } from "vitest";
 import { buildCategoryTotals, calculateProfitAndLoss } from "../lib/accounting/calculateProfit";
+import { parseLedgerCsv } from "../lib/accounting/ledgerImport";
 import type { AccountItem, FinancialStatement } from "../types";
 
 const createStatement = (items: AccountItem[]): FinancialStatement => ({
   fiscalYear: 2026,
   items,
   investedCapital: 1_000_000,
+});
+
+describe("仕訳CSV取込", () => {
+  it("OUT/IN ヘッダー形式でも取込できる", () => {
+    const csv = [
+      "日付,勘定科目,摘要,OUT,IN",
+      "2026/04/04,旅費交通費,山崎精算,1400,",
+      "2026/04/17,通信費,新幹線,5390,",
+    ].join("\n");
+
+    const result = parseLedgerCsv(csv);
+    expect(result.items.length).toBe(2);
+    expect(result.items[0]?.name).toBe("旅費交通費");
+    expect(result.items[0]?.amount).toBe(1400);
+    expect(result.items[1]?.name).toBe("通信費");
+    expect(result.items[1]?.amount).toBe(5390);
+  });
+
+  it("OUT（出金）/IN（入金） ヘッダー形式でも取込できる", () => {
+    const csv = [
+      "日付,勘定科目,摘要,OUT（出金）,IN（入金）",
+      "2026/04/01,売上高,入金,,50000",
+    ].join("\n");
+
+    const result = parseLedgerCsv(csv);
+    expect(result.items.length).toBe(1);
+    expect(result.items[0]?.name).toBe("売上高");
+    expect(result.items[0]?.amount).toBe(50000);
+  });
+
+  it("決算期が6/1〜5/31の場合、7月取引は翌年の会計年度として判定する", () => {
+    const csv = [
+      "日付,勘定科目,摘要,OUT,IN",
+      "2025/07/01,売上高,入金,,100000",
+      "2026/05/31,旅費交通費,精算,5000,",
+    ].join("\n");
+
+    const result = parseLedgerCsv(csv, {
+      fiscalYearStartMonth: 6,
+      fiscalYearLabel: "end",
+    });
+    expect(result.fiscalYear).toBe(2026);
+  });
+
+  it("交際費は販管費として集計され費用内訳に反映できる", () => {
+    const csv = [
+      "日付,勘定科目,摘要,OUT,IN",
+      "2026/04/04,交際費,会食精算,12000,",
+    ].join("\n");
+
+    const result = parseLedgerCsv(csv, {
+      fiscalYearStartMonth: 6,
+      fiscalYearLabel: "end",
+    });
+    expect(result.items.length).toBe(1);
+    expect(result.items[0]?.category).toBe("sga");
+    expect(result.items[0]?.amount).toBe(12000);
+  });
+
+  it("CSV取込で月次データも集計される", () => {
+    const csv = [
+      "日付,勘定科目,摘要,OUT,IN",
+      "2026/01/10,売上高,入金,,30000",
+      "2026/01/20,売上高,入金,,20000",
+      "2026/02/05,旅費交通費,精算,7000,",
+    ].join("\n");
+
+    const result = parseLedgerCsv(csv);
+    const revenue = result.monthlyItems.find((item) => item.name === "売上高");
+    const sga = result.monthlyItems.find((item) => item.name === "旅費交通費");
+
+    expect(revenue).toBeTruthy();
+    expect(sga).toBeTruthy();
+    expect(revenue?.monthlyAmounts.find((m) => m.month === 1)?.amount).toBe(50000);
+    expect(sga?.monthlyAmounts.find((m) => m.month === 2)?.amount).toBe(7000);
+  });
+
+  it("複数会計年度が混在するCSVは最新会計年度のみ集計する", () => {
+    const csv = [
+      "日付,勘定科目,摘要,OUT,IN",
+      "2025/04/01,売上高,前期入金,,10000",
+      "2025/07/01,売上高,当期入金,,20000",
+    ].join("\n");
+
+    const result = parseLedgerCsv(csv, {
+      fiscalYearStartMonth: 6,
+      fiscalYearLabel: "end",
+    });
+
+    expect(result.fiscalYear).toBe(2026);
+    expect(result.items.length).toBe(1);
+    expect(result.items[0]?.amount).toBe(20000);
+    const revenue = result.monthlyItems.find((item) => item.name === "売上高");
+    expect(revenue?.monthlyAmounts.find((m) => m.month === 4)?.amount).toBe(0);
+    expect(revenue?.monthlyAmounts.find((m) => m.month === 7)?.amount).toBe(20000);
+  });
 });
 
 describe("会計ロジック", () => {

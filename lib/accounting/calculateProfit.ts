@@ -16,6 +16,7 @@ const ACCOUNT_CATEGORIES: AccountCategory[] = [
   "extraordinaryGain",
   "extraordinaryLoss",
   "tax",
+  "exclude",
 ];
 
 const EMPTY_CATEGORY_TOTALS: CategoryTotals = {
@@ -27,6 +28,7 @@ const EMPTY_CATEGORY_TOTALS: CategoryTotals = {
   extraordinaryGain: 0,
   extraordinaryLoss: 0,
   tax: 0,
+  exclude: 0,
 };
 
 const toSafeInteger = (value: unknown): Money => {

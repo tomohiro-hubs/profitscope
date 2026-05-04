@@ -16,6 +16,7 @@ import {
 import {
   calculateMonthlyProfitAndLoss,
   calculateProfitAndLoss,
+  parseLedgerCsv,
 } from "@/lib/accounting";
 import { calculateKpis, calculateRoi, calculateYearOverYear } from "@/lib/finance";
 import {
@@ -48,6 +49,7 @@ import type {
 } from "@/types";
 
 const STORAGE_KEY = "profitscope-dashboard-state-v1";
+const FISCAL_PERIOD_START_MONTH = 6;
 
 const createEmptyAnnualStatement = (): FinancialStatement => ({
   fiscalYear: new Date().getFullYear(),
@@ -103,8 +105,34 @@ const TAX_MODE_OPTIONS: Array<{ value: TaxSettings["mode"]; label: string }> = [
   { value: "manual", label: "手入力" },
   { value: "estimated", label: "概算税率" },
 ];
+const COST_BREAKDOWN_MODE_OPTIONS: Array<{ value: "category" | "item"; label: string }> = [
+  { value: "category", label: "カテゴリ別" },
+  { value: "item", label: "科目別" },
+];
 
 const roundToInteger = (value: number): number => Math.round(value);
+
+const parseNumberInput = (value: string): number | null => {
+  const normalized = value.replace(/,/g, "").trim();
+  if (normalized === "" || normalized === "-") {
+    return null;
+  }
+  const num = Number(normalized);
+  return Number.isFinite(num) ? roundToInteger(num) : null;
+};
+
+const formatNumberInput = (value: string): string => {
+  const trimmed = value.replace(/,/g, "").trim();
+  if (trimmed === "") {
+    return "";
+  }
+  const sign = trimmed.startsWith("-") ? "-" : "";
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  if (digits === "") {
+    return sign;
+  }
+  return `${sign}${Number(digits).toLocaleString("ja-JP")}`;
+};
 
 const sanitizeAmount = (value: number | null): number => {
   if (value === null || !Number.isFinite(value)) {
@@ -150,6 +178,63 @@ const withTaxAmount = (items: AccountItem[], taxAmount: number): AccountItem[] =
       amount: index === taxIndexes[0] ? normalizedTax : 0,
     };
   });
+};
+
+const ensureTaxItem = (items: AccountItem[]): AccountItem[] => {
+  const hasTax = items.some((item) => item.category === "tax");
+  if (hasTax) {
+    return items;
+  }
+
+  return [
+    ...items,
+    {
+      id: "tax-import-default",
+      name: "法人税等",
+      category: "tax",
+      amount: 0,
+    },
+  ];
+};
+
+const ensureMonthlyTaxItem = (items: MonthlyFinancialStatement["items"]): MonthlyFinancialStatement["items"] => {
+  const hasTax = items.some((item) => item.category === "tax");
+  if (hasTax) {
+    return items;
+  }
+
+  return [
+    ...items,
+    {
+      id: "tax-monthly-import-default",
+      name: "法人税等",
+      category: "tax",
+      monthlyAmounts: Array.from({ length: 12 }, (_, index) => ({
+        month: (index + 1) as MonthlyAmount["month"],
+        amount: 0,
+      })),
+    },
+  ];
+};
+
+const withConsumptionTaxAmount = (items: AccountItem[], consumptionTaxAmount: number): AccountItem[] => {
+  const normalized = roundToInteger(Math.max(0, consumptionTaxAmount));
+  const consumptionTaxId = "consumption-tax-manual";
+  const next = items.filter((item) => item.id !== consumptionTaxId);
+
+  if (normalized <= 0) {
+    return next;
+  }
+
+  return [
+    ...next,
+    {
+      id: consumptionTaxId,
+      name: "消費税（手入力）",
+      category: "sga",
+      amount: normalized,
+    },
+  ];
 };
 
 const withMonthlyTaxAmounts = (
@@ -261,10 +346,15 @@ const downloadCsv = (filename: string, csv: string): void => {
 export default function DashboardPage(): React.JSX.Element {
   const [annualInput, setAnnualInput] = useState<FinancialStatement>(initialAnnualStatement);
   const [monthlyInput, setMonthlyInput] = useState<MonthlyFinancialStatement>(initialMonthlyStatement);
-  const [previousAnnualInput] = useState<FinancialStatement>(initialPreviousAnnualStatement);
+  const previousAnnualInput: FinancialStatement = initialPreviousAnnualStatement;
   const [roiProfitType, setRoiProfitType] = useState<RoiProfitType>("operatingIncome");
   const [taxMode, setTaxMode] = useState<TaxSettings["mode"]>("manual");
+  const [isConsumptionTaxManual, setIsConsumptionTaxManual] = useState<boolean>(false);
+  const [consumptionTaxAmount, setConsumptionTaxAmount] = useState<number>(0);
+  const [consumptionTaxAmountText, setConsumptionTaxAmountText] = useState<string>("0");
+  const [costBreakdownMode, setCostBreakdownMode] = useState<"category" | "item">("category");
   const [estimatedTaxRate, setEstimatedTaxRate] = useState<number>(30);
+  const [importMessage, setImportMessage] = useState<string>("");
 
   useEffect(() => {
     try {
@@ -279,6 +369,9 @@ export default function DashboardPage(): React.JSX.Element {
         roiProfitType?: unknown;
         taxMode?: unknown;
         estimatedTaxRate?: unknown;
+        isConsumptionTaxManual?: unknown;
+        consumptionTaxAmount?: unknown;
+        costBreakdownMode?: unknown;
       };
 
       const parsedAnnual = safeParseFinancialStatement(parsed.annualInput);
@@ -306,6 +399,20 @@ export default function DashboardPage(): React.JSX.Element {
       if (typeof parsed.estimatedTaxRate === "number" && Number.isFinite(parsed.estimatedTaxRate)) {
         setEstimatedTaxRate(parsed.estimatedTaxRate);
       }
+
+      if (typeof parsed.isConsumptionTaxManual === "boolean") {
+        setIsConsumptionTaxManual(parsed.isConsumptionTaxManual);
+      }
+
+      if (typeof parsed.consumptionTaxAmount === "number" && Number.isFinite(parsed.consumptionTaxAmount)) {
+        const normalized = roundToInteger(Math.max(0, parsed.consumptionTaxAmount));
+        setConsumptionTaxAmount(normalized);
+        setConsumptionTaxAmountText(normalized.toLocaleString("ja-JP"));
+      }
+
+      if (parsed.costBreakdownMode === "category" || parsed.costBreakdownMode === "item") {
+        setCostBreakdownMode(parsed.costBreakdownMode);
+      }
     } catch {
       // localStorage が利用できない環境では永続化を無効化する
     }
@@ -321,12 +428,24 @@ export default function DashboardPage(): React.JSX.Element {
           roiProfitType,
           taxMode,
           estimatedTaxRate,
+          isConsumptionTaxManual,
+          consumptionTaxAmount,
+          costBreakdownMode,
         }),
       );
     } catch {
       // localStorage が利用できない環境では永続化を無効化する
     }
-  }, [annualInput, monthlyInput, roiProfitType, taxMode, estimatedTaxRate]);
+  }, [
+    annualInput,
+    monthlyInput,
+    roiProfitType,
+    taxMode,
+    estimatedTaxRate,
+    isConsumptionTaxManual,
+    consumptionTaxAmount,
+    costBreakdownMode,
+  ]);
 
   const annualValidation = useMemo(() => safeParseFinancialStatement(annualInput), [annualInput]);
   const monthlyValidation = useMemo(() => safeParseMonthlyFinancialStatement(monthlyInput), [monthlyInput]);
@@ -346,13 +465,16 @@ export default function DashboardPage(): React.JSX.Element {
 
   const annualStatementForCalc = useMemo<FinancialStatement>(() => {
     const base = annualValidation.success ? annualValidation.data : initialAnnualStatement;
+    const withConsumptionTax = isConsumptionTaxManual
+      ? { ...base, items: withConsumptionTaxAmount(base.items, consumptionTaxAmount) }
+      : base;
 
     if (taxSettings.mode === "estimated") {
-      return applyEstimatedTaxToAnnual(base, taxSettings.estimatedTaxRate ?? 0);
+      return applyEstimatedTaxToAnnual(withConsumptionTax, taxSettings.estimatedTaxRate ?? 0);
     }
 
-    return base;
-  }, [annualValidation, taxSettings]);
+    return withConsumptionTax;
+  }, [annualValidation, taxSettings, isConsumptionTaxManual, consumptionTaxAmount]);
 
   const monthlyStatementForCalc = useMemo<MonthlyFinancialStatement>(() => {
     const base = monthlyValidation.success ? monthlyValidation.data : initialMonthlyStatement;
@@ -497,6 +619,66 @@ export default function DashboardPage(): React.JSX.Element {
     amount: item.amount,
   }));
 
+  const handleLedgerCsvImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const imported = parseLedgerCsv(content, {
+        fiscalYearStartMonth: FISCAL_PERIOD_START_MONTH,
+        fiscalYearLabel: "end",
+      });
+
+      if (imported.items.length === 0) {
+        setImportMessage(
+          "取込対象がありません。列名は「日付, 勘定科目, 摘要, OUT（出金）またはOUT, IN（入金）またはIN」を使用してください。",
+        );
+        event.target.value = "";
+        return;
+      }
+
+      setAnnualInput((prev) => ({
+        ...prev,
+        fiscalYear: imported.fiscalYear ?? prev.fiscalYear,
+        items: ensureTaxItem(imported.items),
+      }));
+      setMonthlyInput((prev) => ({
+        ...prev,
+        fiscalYear: imported.fiscalYear ?? prev.fiscalYear,
+        items:
+          imported.monthlyItems.length > 0
+            ? ensureMonthlyTaxItem(imported.monthlyItems)
+            : ensureMonthlyTaxItem(prev.items),
+      }));
+
+      setImportMessage(
+        `${imported.items.length}件の勘定科目を取込みました（月次推移にも反映）。必要に応じてカテゴリを確認してください。`,
+      );
+    } catch {
+      setImportMessage("CSVの読み込みに失敗しました。ファイル形式を確認してください。");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const handleClearAll = (): void => {
+    setAnnualInput(createEmptyAnnualStatement());
+    setMonthlyInput(createEmptyMonthlyStatement());
+    setRoiProfitType("operatingIncome");
+    setTaxMode("manual");
+    setIsConsumptionTaxManual(false);
+    setConsumptionTaxAmount(0);
+    setConsumptionTaxAmountText("0");
+    setCostBreakdownMode("category");
+    setEstimatedTaxRate(30);
+    setImportMessage("入力内容を0ベースの空データにクリアしました。");
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -543,6 +725,34 @@ export default function DashboardPage(): React.JSX.Element {
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsConsumptionTaxManual((prev) => !prev)}
+                  className={`mt-2 rounded-md border px-3 py-2 ${
+                    isConsumptionTaxManual
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-300 bg-white text-slate-700"
+                  }`}
+                >
+                  消費税手入力
+                </button>
+                {isConsumptionTaxManual ? (
+                  <label className="mt-2 block text-sm text-slate-700">
+                    消費税（円）
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={consumptionTaxAmountText}
+                      onChange={(event) => {
+                        const formatted = formatNumberInput(event.target.value);
+                        setConsumptionTaxAmountText(formatted);
+                        const parsed = parseNumberInput(formatted);
+                        setConsumptionTaxAmount(Math.max(0, sanitizeAmount(parsed)));
+                      }}
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                    />
+                  </label>
+                ) : null}
               </div>
             </div>
           </div>
@@ -562,7 +772,24 @@ export default function DashboardPage(): React.JSX.Element {
             >
               月次テンプレートDL（Excel用CSV）
             </button>
+            <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
+              仕訳CSV取込（日付/勘定科目/摘要/OUT/IN）
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleLedgerCsvImport}
+                className="hidden"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700 hover:bg-rose-100"
+            >
+              内容クリア
+            </button>
           </div>
+          {importMessage ? <p className="mt-2 text-xs text-slate-600">{importMessage}</p> : null}
 
           {taxMode === "estimated" ? (
             <div className="mt-4 grid gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
@@ -627,9 +854,27 @@ export default function DashboardPage(): React.JSX.Element {
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">費用内訳</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-slate-900">費用内訳</h2>
+              <div className="flex flex-wrap gap-2">
+                {COST_BREAKDOWN_MODE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setCostBreakdownMode(option.value)}
+                    className={`rounded-md border px-2 py-1 text-xs ${
+                      costBreakdownMode === option.value
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className="text-xs text-slate-500">売上原価・販管費・営業外費用・特別損失・法人税等</p>
-            <CostBreakdownChart summary={annualSummary} />
+            <CostBreakdownChart summary={annualSummary} items={annualStatementForCalc.items} mode={costBreakdownMode} />
           </article>
 
           <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -641,8 +886,8 @@ export default function DashboardPage(): React.JSX.Element {
 
         <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">月次推移</h2>
-          <p className="text-xs text-slate-500">売上高・営業利益・当期純利益</p>
-          <MonthlyTrendChart monthly={monthlyResults} />
+          <p className="text-xs text-slate-500">売上高・営業利益・当期純利益（決算期順）</p>
+          <MonthlyTrendChart monthly={monthlyResults} fiscalYearStartMonth={FISCAL_PERIOD_START_MONTH} />
         </article>
 
         <FinancialInputForm

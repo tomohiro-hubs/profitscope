@@ -6,6 +6,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,6 +15,7 @@ import {
 
 interface MonthlyTrendChartProps {
   monthly: MonthlyCalculationResult[];
+  fiscalYearStartMonth?: number;
 }
 
 interface MonthlyTrendDataItem {
@@ -25,10 +27,18 @@ interface MonthlyTrendDataItem {
 
 const formatCurrency = (value: number): string => `¥${value.toLocaleString("ja-JP")}`;
 
-export function MonthlyTrendChart({ monthly }: MonthlyTrendChartProps): React.JSX.Element {
+export function MonthlyTrendChart({
+  monthly,
+  fiscalYearStartMonth = 1,
+}: MonthlyTrendChartProps): React.JSX.Element {
+  const normalizedStartMonth = Math.min(12, Math.max(1, Math.trunc(fiscalYearStartMonth)));
+  const toFiscalOrder = (month: number): number => {
+    return (month - normalizedStartMonth + 12) % 12;
+  };
+
   const data: MonthlyTrendDataItem[] = monthly
     .slice()
-    .sort((a, b) => a.month - b.month)
+    .sort((a, b) => toFiscalOrder(a.month) - toFiscalOrder(b.month))
     .map((item) => ({
       monthLabel: `${item.month}月`,
       revenue: Math.trunc(item.summary.revenue),
@@ -41,6 +51,7 @@ export function MonthlyTrendChart({ monthly }: MonthlyTrendChartProps): React.JS
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" />
+          <ReferenceLine y={0} stroke="#64748b" strokeWidth={1.5} />
           <XAxis dataKey="monthLabel" />
           <YAxis tickFormatter={formatCurrency} width={100} />
           <Tooltip formatter={(value: number) => formatCurrency(value)} />

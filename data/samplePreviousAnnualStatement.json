@@ -1,84 +1,84 @@
 {
   "fiscalYear": 2024,
-  "investedCapital": 56000000,
+  "investedCapital": 0,
   "items": [
     {
       "id": "rev-main",
       "name": "売上高（主力事業）",
       "category": "revenue",
-      "amount": 138000000
+      "amount": 0
     },
     {
       "id": "rev-sub",
       "name": "売上高（サブ事業）",
       "category": "revenue",
-      "amount": 22000000
+      "amount": 0
     },
     {
       "id": "cogs-material",
       "name": "売上原価（材料費）",
       "category": "cogs",
-      "amount": 40000000
+      "amount": 0
     },
     {
       "id": "cogs-outsourcing",
       "name": "売上原価（外注費）",
       "category": "cogs",
-      "amount": 17000000
+      "amount": 0
     },
     {
       "id": "sga-payroll",
       "name": "販管費（人件費）",
       "category": "sga",
-      "amount": 28500000
+      "amount": 0
     },
     {
       "id": "sga-rent",
       "name": "販管費（地代家賃）",
       "category": "sga",
-      "amount": 7800000
+      "amount": 0
     },
     {
       "id": "sga-ad",
       "name": "販管費（広告宣伝費）",
       "category": "sga",
-      "amount": 5200000
+      "amount": 0
     },
     {
       "id": "nonop-interest-income",
       "name": "営業外収益（受取利息）",
       "category": "nonOpIncome",
-      "amount": 1000000
+      "amount": 0
     },
     {
       "id": "nonop-misc-income",
       "name": "営業外収益（雑収入）",
       "category": "nonOpIncome",
-      "amount": 700000
+      "amount": 0
     },
     {
       "id": "nonop-interest-expense",
       "name": "営業外費用（支払利息）",
       "category": "nonOpExpense",
-      "amount": 1900000
+      "amount": 0
     },
     {
       "id": "extra-gain-sale",
       "name": "特別利益（固定資産売却益）",
       "category": "extraordinaryGain",
-      "amount": 500000
+      "amount": 0
     },
     {
       "id": "extra-loss-disposal",
       "name": "特別損失（固定資産除却損）",
       "category": "extraordinaryLoss",
-      "amount": 600000
+      "amount": 0
     },
     {
       "id": "tax-corporate",
       "name": "法人税等",
       "category": "tax",
-      "amount": 11500000
+      "amount": 0
     }
   ]
 }

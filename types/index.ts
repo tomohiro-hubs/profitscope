@@ -29,7 +29,8 @@ export type AccountCategory =
   | "nonOpExpense"
   | "extraordinaryGain"
   | "extraordinaryLoss"
-  | "tax";
+  | "tax"
+  | "exclude";
 
 /**
  * 勘定科目。
