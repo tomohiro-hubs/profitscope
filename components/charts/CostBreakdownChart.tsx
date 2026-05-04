@@ -42,6 +42,7 @@ const shouldShowLabel = (percent?: number): boolean => {
 
 const renderPieLabel = (props: PieLabelRenderProps): React.JSX.Element | null => {
   const { percent, x = 0, y = 0, value = 0, cx = 0 } = props;
+  const centerX = typeof cx === "number" ? cx : 0;
   if (!shouldShowLabel(percent)) {
     return null;
   }
@@ -51,7 +52,7 @@ const renderPieLabel = (props: PieLabelRenderProps): React.JSX.Element | null =>
       x={x}
       y={y}
       fill="#2563eb"
-      textAnchor={x >= cx ? "end" : "start"}
+      textAnchor={x >= centerX ? "end" : "start"}
       dominantBaseline="central"
       fontSize={12}
       fontWeight={600}
@@ -121,11 +122,7 @@ export function CostBreakdownChart({ summary, items, mode }: CostBreakdownChartP
             cy="50%"
             outerRadius={showSliceLabel ? "68%" : "75%"}
             label={hasData && showSliceLabel ? renderPieLabel : false}
-            labelLine={
-              hasData && showSliceLabel
-                ? (props: PieLabelRenderProps) => shouldShowLabel(props.percent)
-                : false
-            }
+            labelLine={false}
             minAngle={2}
           >
             {(hasData ? data : [{ name: "データなし", value: 1 }]).map((entry, index) => (
