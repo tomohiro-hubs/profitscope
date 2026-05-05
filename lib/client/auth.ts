@@ -51,3 +51,19 @@ export const logout = async (): Promise<void> => {
     throw new Error("ログアウトに失敗しました。");
   }
 };
+
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  const response = await fetch("/api/auth/password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "パスワード変更に失敗しました。");
+  }
+};

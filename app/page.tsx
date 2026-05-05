@@ -39,7 +39,7 @@ import {
   fetchLatestStatement,
   saveLatestStatement,
 } from "@/lib/client/statements";
-import { fetchMe, logout } from "@/lib/client/auth";
+import { changePassword, fetchMe, logout } from "@/lib/client/auth";
 import {
   samplePreviousAnnualStatement,
 } from "@/data";
@@ -50,6 +50,7 @@ import type {
   MonthlyAmount,
   MonthlyCalculationResult,
   MonthlyFinancialStatement,
+  MonthNumber,
   RoiProfitType,
   DashboardPersistedState,
   TaxSettings,
@@ -370,6 +371,17 @@ export default function DashboardPage(): React.JSX.Element {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [persistErrorMessage, setPersistErrorMessage] = useState<string>("");
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState<boolean>(false);
+  const [currentPassword, setCurrentPassword] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [isChangingPassword, setIsChangingPassword] = useState<boolean>(false);
+  const [passwordMessage, setPasswordMessage] = useState<string>("");
+  const [passwordError, setPasswordError] = useState<string>("");
+  const [monthlyCrudMonth, setMonthlyCrudMonth] = useState<MonthNumber>(1);
+  const [monthlyDraftName, setMonthlyDraftName] = useState<string>("売上高");
+  const [monthlyDraftCategory, setMonthlyDraftCategory] = useState<AccountCategory>("revenue");
+  const [monthlyDraftAmountText, setMonthlyDraftAmountText] = useState<string>("0");
 
   useEffect(() => {
     let isMounted = true;
@@ -546,6 +558,36 @@ export default function DashboardPage(): React.JSX.Element {
     }
     router.replace("/login");
     router.refresh();
+  };
+
+  const handleChangePassword = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setPasswordMessage("");
+    setPasswordError("");
+
+    if (newPassword.length < 8) {
+      setPasswordError("新しいパスワードは8文字以上で入力してください。");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("新しいパスワード（確認）が一致しません。");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordMessage("パスワードを変更しました。");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setIsPasswordFormOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "パスワード変更に失敗しました。";
+      setPasswordError(message);
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const annualValidation = useMemo(() => safeParseFinancialStatement(annualInput), [annualInput]);
@@ -770,6 +812,66 @@ export default function DashboardPage(): React.JSX.Element {
     amount: item.amount,
   }));
 
+  const handleAddMonthlyItem = (): void => {
+    const name = monthlyDraftName.trim();
+    if (!name) {
+      return;
+    }
+    const amount = Math.max(0, sanitizeAmount(parseNumberInput(monthlyDraftAmountText)));
+    setMonthlyInput((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: createItemId(),
+          name,
+          category: monthlyDraftCategory,
+          monthlyAmounts: Array.from({ length: 12 }, (_, index) => ({
+            month: (index + 1) as MonthNumber,
+            amount: index + 1 === monthlyCrudMonth ? amount : 0,
+          })),
+        },
+      ],
+    }));
+    setMonthlyDraftAmountText("0");
+  };
+
+  const handleDeleteMonthlyItem = (itemId: string): void => {
+    setMonthlyInput((prev) => ({
+      ...prev,
+      items: prev.items.filter((item) => item.id !== itemId),
+    }));
+  };
+
+  const handleUpdateMonthlyItemMeta = (itemId: string, name: string, category: AccountCategory): void => {
+    setMonthlyInput((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => (item.id === itemId ? { ...item, name, category } : item)),
+    }));
+  };
+
+  const handleUpdateMonthlyItemAmount = (itemId: string, month: MonthNumber, amount: number): void => {
+    setMonthlyInput((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => {
+        if (item.id !== itemId) {
+          return item;
+        }
+        return {
+          ...item,
+          monthlyAmounts: Array.from({ length: 12 }, (_, index) => {
+            const currentMonth = (index + 1) as MonthNumber;
+            const current = item.monthlyAmounts.find((entry) => entry.month === currentMonth);
+            return {
+              month: currentMonth,
+              amount: currentMonth === month ? amount : (current?.amount ?? 0),
+            };
+          }),
+        };
+      }),
+    }));
+  };
+
   const handleLedgerCsvImport = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ): Promise<void> => {
@@ -888,6 +990,17 @@ export default function DashboardPage(): React.JSX.Element {
               >
                 ログアウト
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPasswordFormOpen((prev) => !prev);
+                  setPasswordError("");
+                  setPasswordMessage("");
+                }}
+                className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-700 hover:bg-slate-100"
+              >
+                パスワード変更
+              </button>
 
               <div className="text-sm text-slate-700">
                 <p>税計算モード</p>
@@ -938,6 +1051,58 @@ export default function DashboardPage(): React.JSX.Element {
               </div>
             </div>
           </div>
+
+          {isPasswordFormOpen ? (
+            <form
+              onSubmit={handleChangePassword}
+              className="mt-4 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
+            >
+              <p className="font-semibold text-slate-800">パスワード変更</p>
+              <label className="text-slate-700">
+                現在のパスワード
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+                  required
+                />
+              </label>
+              <label className="text-slate-700">
+                新しいパスワード
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <label className="text-slate-700">
+                新しいパスワード（確認）
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="rounded-md bg-slate-900 px-3 py-2 text-white disabled:opacity-60"
+                >
+                  {isChangingPassword ? "変更中..." : "更新する"}
+                </button>
+              </div>
+              {passwordMessage ? <p className="text-emerald-700">{passwordMessage}</p> : null}
+              {passwordError ? <p className="text-rose-600">{passwordError}</p> : null}
+            </form>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -1085,6 +1250,142 @@ export default function DashboardPage(): React.JSX.Element {
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
         />
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-slate-900">月次入力データ一覧（追加・編集・削除）</h2>
+            <label className="text-sm text-slate-700">
+              対象月
+              <select
+                value={monthlyCrudMonth}
+                onChange={(event) => setMonthlyCrudMonth(Number(event.target.value) as MonthNumber)}
+                className="ml-2 rounded-md border border-slate-300 px-2 py-1"
+              >
+                {Array.from({ length: 12 }, (_, index) => (
+                  <option key={index + 1} value={index + 1}>
+                    {index + 1}月
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-4">
+            <input
+              type="text"
+              value={monthlyDraftName}
+              onChange={(event) => setMonthlyDraftName(event.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="科目名"
+            />
+            <select
+              value={monthlyDraftCategory}
+              onChange={(event) => setMonthlyDraftCategory(event.target.value as AccountCategory)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="revenue">売上高</option>
+              <option value="cogs">売上原価</option>
+              <option value="sga">販管費</option>
+              <option value="nonOpIncome">営業外収益</option>
+              <option value="nonOpExpense">営業外費用</option>
+              <option value="extraordinaryGain">特別利益</option>
+              <option value="extraordinaryLoss">特別損失</option>
+              <option value="tax">法人税等</option>
+              <option value="exclude">損益対象外(B/S・資金移動)</option>
+            </select>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={monthlyDraftAmountText}
+              onChange={(event) => setMonthlyDraftAmountText(formatNumberInput(event.target.value))}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder={`${monthlyCrudMonth}月の金額(円)`}
+            />
+            <button
+              type="button"
+              onClick={handleAddMonthlyItem}
+              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              追加
+            </button>
+          </div>
+
+          <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-left text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 font-medium">科目名</th>
+                  <th className="px-3 py-2 font-medium">カテゴリ</th>
+                  <th className="px-3 py-2 text-right font-medium">{monthlyCrudMonth}月金額</th>
+                  <th className="px-3 py-2 text-right font-medium">年合計</th>
+                  <th className="px-3 py-2 text-right font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyInput.items.map((item) => {
+                  const monthAmount = item.monthlyAmounts.find((entry) => entry.month === monthlyCrudMonth)?.amount ?? 0;
+                  const yearlyTotal = item.monthlyAmounts.reduce((sum, entry) => sum + entry.amount, 0);
+                  return (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(event) => handleUpdateMonthlyItemMeta(item.id, event.target.value, item.category)}
+                          className="w-full rounded-md border border-slate-300 px-2 py-1"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={item.category}
+                          onChange={(event) =>
+                            handleUpdateMonthlyItemMeta(item.id, item.name, event.target.value as AccountCategory)
+                          }
+                          className="rounded-md border border-slate-300 px-2 py-1"
+                        >
+                          <option value="revenue">売上高</option>
+                          <option value="cogs">売上原価</option>
+                          <option value="sga">販管費</option>
+                          <option value="nonOpIncome">営業外収益</option>
+                          <option value="nonOpExpense">営業外費用</option>
+                          <option value="extraordinaryGain">特別利益</option>
+                          <option value="extraordinaryLoss">特別損失</option>
+                          <option value="tax">法人税等</option>
+                          <option value="exclude">損益対象外(B/S・資金移動)</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={monthAmount.toLocaleString("ja-JP")}
+                          onChange={(event) =>
+                            handleUpdateMonthlyItemAmount(
+                              item.id,
+                              monthlyCrudMonth,
+                              Math.max(0, sanitizeAmount(parseNumberInput(event.target.value))),
+                            )
+                          }
+                          className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium">{formatCurrency(yearlyTotal)}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMonthlyItem(item.id)}
+                          className="rounded-md border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                        >
+                          削除
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">勘定科目一覧（計算適用後）</h2>
