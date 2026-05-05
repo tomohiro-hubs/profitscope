@@ -29,6 +29,25 @@
 - `npx tsc --noEmit`: 成功（型エラーなし）
 - `npm run build`: 成功（Next.js 本番ビルド成功）
 
+## 追加進捗ログ（2026-05-05 / D1永続化対応）
+### オーケストレーター判断
+- 依頼: Cloudflare D1 永続化対応に伴うテスト・ドキュメント更新。
+- 制約: Worker C は `/tests`, `README.md`, `docs/progress.md`, `docs/architecture.md`, `docs/domain-model.md` のみ編集。
+- 方針: 実装ファイルの競合を避けるため、永続化契約テストはモックで追加し、設計書は永続化レイヤーを明文化。
+
+### サブエージェント実行ログ風メモ
+- `[Worker C / Test Agent]` `tests/persistence.test.ts` を新規追加。
+- `[Worker C / Test Agent]` 正常系: D1 `INSERT` 実行と `last_row_id` 返却を検証。
+- `[Worker C / Test Agent]` 異常系: 環境変数起因の D1 バインディング未設定時に例外を検証。
+- `[Worker C / Docs Agent]` `README.md` に Cloudflare D1 の設定手順（環境変数、スキーマ適用、migrations 実行）を追記。
+- `[Worker C / Architect Support]` `docs/architecture.md` に `app/api` と `lib/persistence` の責務・依存方向を追記。
+- `[Worker C / Architect Support]` `docs/domain-model.md` に D1 永続化モデルとエラーハンドリング方針を追記。
+
+### Worker C 完了判定
+- ステータス: 完了
+- 失敗有無: なし
+- 備考: 他ワーカーの担当領域ファイルは未編集。
+
 ## 完了条件チェックリスト（Definition of Done）
 - [達成] アプリ「ProfitScope」がローカルで起動でき、サンプルデータで可視化画面が表示される。
 - [達成] 入力編集に応じて指標とグラフがリアルタイム更新される。

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 import {
   CostBreakdownChart,
@@ -35,6 +36,11 @@ import {
   validationPolicyJa,
 } from "@/lib/validation";
 import {
+  fetchLatestStatement,
+  saveLatestStatement,
+} from "@/lib/client/statements";
+import { fetchMe, logout } from "@/lib/client/auth";
+import {
   samplePreviousAnnualStatement,
 } from "@/data";
 import type {
@@ -45,10 +51,10 @@ import type {
   MonthlyCalculationResult,
   MonthlyFinancialStatement,
   RoiProfitType,
+  DashboardPersistedState,
   TaxSettings,
 } from "@/types";
 
-const STORAGE_KEY = "profitscope-dashboard-state-v1";
 const FISCAL_PERIOD_START_MONTH = 6;
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const LOGO_SRC = `${BASE_PATH}/profitscope-logo.png`;
@@ -347,6 +353,7 @@ const downloadCsv = (filename: string, csv: string): void => {
 };
 
 export default function DashboardPage(): React.JSX.Element {
+  const router = useRouter();
   const [annualInput, setAnnualInput] = useState<FinancialStatement>(initialAnnualStatement);
   const [monthlyInput, setMonthlyInput] = useState<MonthlyFinancialStatement>(initialMonthlyStatement);
   const previousAnnualInput: FinancialStatement = initialPreviousAnnualStatement;
@@ -359,87 +366,166 @@ export default function DashboardPage(): React.JSX.Element {
   const [estimatedTaxRate, setEstimatedTaxRate] = useState<number>(30);
   const [importMessage, setImportMessage] = useState<string>("");
   const [aiPromptText, setAiPromptText] = useState<string>("");
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  const [hasLoadedServerState, setHasLoadedServerState] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [persistErrorMessage, setPersistErrorMessage] = useState<string>("");
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) {
-        return;
-      }
+    let isMounted = true;
 
-      const parsed = JSON.parse(saved) as {
-        annualInput?: unknown;
-        monthlyInput?: unknown;
-        roiProfitType?: unknown;
-        taxMode?: unknown;
-        estimatedTaxRate?: unknown;
-        isConsumptionTaxManual?: unknown;
-        consumptionTaxAmount?: unknown;
-        costBreakdownMode?: unknown;
+    const verifyAuth = async (): Promise<void> => {
+      try {
+        const me = await fetchMe();
+        if (isMounted && !me.authenticated) {
+          router.replace("/login");
+          return;
+        }
+      } catch {
+        if (isMounted) {
+          setPersistErrorMessage("認証確認に失敗しました。再度ログインしてください。");
+          router.replace("/login");
+          return;
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
+      }
+    };
+
+    void verifyAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (isCheckingAuth) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const load = async (): Promise<void> => {
+      try {
+        const response = await fetchLatestStatement();
+        const parsed =
+          response && typeof response === "object" && "data" in response
+            ? (response as { data?: unknown }).data
+            : response;
+
+        const state = (parsed ?? {}) as Partial<DashboardPersistedState>;
+
+        const parsedAnnual = safeParseFinancialStatement(state.annualInput);
+        if (parsedAnnual.success && isMounted) {
+          setAnnualInput(parsedAnnual.data);
+        }
+
+        const parsedMonthly = safeParseMonthlyFinancialStatement(state.monthlyInput);
+        if (parsedMonthly.success && isMounted) {
+          setMonthlyInput(parsedMonthly.data);
+        }
+
+        if (
+          isMounted &&
+          (state.roiProfitType === "operatingIncome" ||
+            state.roiProfitType === "ordinaryIncome" ||
+            state.roiProfitType === "netIncome")
+        ) {
+          setRoiProfitType(state.roiProfitType);
+        }
+
+        if (isMounted && (state.taxMode === "manual" || state.taxMode === "estimated")) {
+          setTaxMode(state.taxMode);
+        }
+
+        if (isMounted && typeof state.estimatedTaxRate === "number" && Number.isFinite(state.estimatedTaxRate)) {
+          setEstimatedTaxRate(state.estimatedTaxRate);
+        }
+
+        if (isMounted && typeof state.isConsumptionTaxManual === "boolean") {
+          setIsConsumptionTaxManual(state.isConsumptionTaxManual);
+        }
+
+        if (isMounted && typeof state.consumptionTaxAmount === "number" && Number.isFinite(state.consumptionTaxAmount)) {
+          const normalized = roundToInteger(Math.max(0, state.consumptionTaxAmount));
+          setConsumptionTaxAmount(normalized);
+          setConsumptionTaxAmountText(normalized.toLocaleString("ja-JP"));
+        }
+
+        if (isMounted && (state.costBreakdownMode === "category" || state.costBreakdownMode === "item")) {
+          setCostBreakdownMode(state.costBreakdownMode);
+        }
+
+        if (isMounted) {
+          setPersistErrorMessage("");
+        }
+      } catch {
+        if (isMounted) {
+          setPersistErrorMessage("サーバ保存データの読込に失敗しました。入力は継続できます。");
+        }
+      } finally {
+        if (isMounted) {
+          setHasLoadedServerState(true);
+          setIsInitialLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isCheckingAuth]);
+
+  useEffect(() => {
+    if (!hasLoadedServerState || isCheckingAuth) {
+      return;
+    }
+
+    const payload: DashboardPersistedState = {
+      annualInput,
+      monthlyInput,
+      roiProfitType,
+      taxMode,
+      estimatedTaxRate,
+      isConsumptionTaxManual,
+      consumptionTaxAmount,
+      costBreakdownMode,
+    };
+
+    let isCancelled = false;
+    const timer = window.setTimeout(() => {
+      const save = async (): Promise<void> => {
+        if (!isCancelled) {
+          setIsSaving(true);
+          setPersistErrorMessage("");
+        }
+
+        try {
+          await saveLatestStatement(payload);
+        } catch {
+          if (!isCancelled) {
+            setPersistErrorMessage("サーバ保存に失敗しました。入力は継続できます。");
+          }
+        } finally {
+          if (!isCancelled) {
+            setIsSaving(false);
+          }
+        }
       };
 
-      const parsedAnnual = safeParseFinancialStatement(parsed.annualInput);
-      if (parsedAnnual.success) {
-        setAnnualInput(parsedAnnual.data);
-      }
+      void save();
+    }, 500);
 
-      const parsedMonthly = safeParseMonthlyFinancialStatement(parsed.monthlyInput);
-      if (parsedMonthly.success) {
-        setMonthlyInput(parsedMonthly.data);
-      }
-
-      if (
-        parsed.roiProfitType === "operatingIncome" ||
-        parsed.roiProfitType === "ordinaryIncome" ||
-        parsed.roiProfitType === "netIncome"
-      ) {
-        setRoiProfitType(parsed.roiProfitType);
-      }
-
-      if (parsed.taxMode === "manual" || parsed.taxMode === "estimated") {
-        setTaxMode(parsed.taxMode);
-      }
-
-      if (typeof parsed.estimatedTaxRate === "number" && Number.isFinite(parsed.estimatedTaxRate)) {
-        setEstimatedTaxRate(parsed.estimatedTaxRate);
-      }
-
-      if (typeof parsed.isConsumptionTaxManual === "boolean") {
-        setIsConsumptionTaxManual(parsed.isConsumptionTaxManual);
-      }
-
-      if (typeof parsed.consumptionTaxAmount === "number" && Number.isFinite(parsed.consumptionTaxAmount)) {
-        const normalized = roundToInteger(Math.max(0, parsed.consumptionTaxAmount));
-        setConsumptionTaxAmount(normalized);
-        setConsumptionTaxAmountText(normalized.toLocaleString("ja-JP"));
-      }
-
-      if (parsed.costBreakdownMode === "category" || parsed.costBreakdownMode === "item") {
-        setCostBreakdownMode(parsed.costBreakdownMode);
-      }
-    } catch {
-      // localStorage が利用できない環境では永続化を無効化する
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          annualInput,
-          monthlyInput,
-          roiProfitType,
-          taxMode,
-          estimatedTaxRate,
-          isConsumptionTaxManual,
-          consumptionTaxAmount,
-          costBreakdownMode,
-        }),
-      );
-    } catch {
-      // localStorage が利用できない環境では永続化を無効化する
-    }
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [
     annualInput,
     monthlyInput,
@@ -449,7 +535,19 @@ export default function DashboardPage(): React.JSX.Element {
     isConsumptionTaxManual,
     consumptionTaxAmount,
     costBreakdownMode,
+    hasLoadedServerState,
+    isCheckingAuth,
   ]);
+
+  const handleLogout = async (): Promise<void> => {
+    try {
+      await logout();
+    } catch {
+      // ログアウト失敗時でもログイン画面へ遷移する
+    }
+    router.replace("/login");
+    router.refresh();
+  };
 
   const annualValidation = useMemo(() => safeParseFinancialStatement(annualInput), [annualInput]);
   const monthlyValidation = useMemo(() => safeParseMonthlyFinancialStatement(monthlyInput), [monthlyInput]);
@@ -733,6 +831,16 @@ export default function DashboardPage(): React.JSX.Element {
     setImportMessage("入力内容を0ベースの空データにクリアしました。");
   };
 
+  if (isCheckingAuth) {
+    return (
+      <main className="min-h-screen bg-sky-50/60 px-4 py-6 md:px-8 lg:px-10">
+        <div className="mx-auto w-full max-w-7xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-600">認証状態を確認しています...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-sky-50/60 px-4 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -774,6 +882,13 @@ export default function DashboardPage(): React.JSX.Element {
                   ))}
                 </select>
               </label>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-700 hover:bg-slate-100"
+              >
+                ログアウト
+              </button>
 
               <div className="text-sm text-slate-700">
                 <p>税計算モード</p>
@@ -858,6 +973,9 @@ export default function DashboardPage(): React.JSX.Element {
             </button>
           </div>
           {importMessage ? <p className="mt-2 text-xs text-slate-600">{importMessage}</p> : null}
+          {isInitialLoading ? <p className="mt-1 text-xs text-slate-500">保存データを読込中です...</p> : null}
+          {isSaving ? <p className="mt-1 text-xs text-slate-500">保存中...</p> : null}
+          {persistErrorMessage ? <p className="mt-1 text-xs text-rose-600">{persistErrorMessage}</p> : null}
 
           {taxMode === "estimated" ? (
             <div className="mt-4 grid gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">

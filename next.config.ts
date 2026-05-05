@@ -5,7 +5,7 @@ const repoName = "profitscope";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: "export",
+  output: isGithubPages ? "export" : undefined,
   images: {
     unoptimized: true,
   },

@@ -13,6 +13,8 @@
 - `KpiMetrics`: 各利益率・費用率・ROI。
 - `RoiProfitType`: ROI の利益定義(`operatingIncome` / `ordinaryIncome` / `netIncome`)。
 - `DashboardData`: ダッシュボード最終出力。
+- `PersistedFinancialStatement`: D1 永続化済みの財務データ（`id`, `createdAt`, `updatedAt` を含む）。
+- `PersistedAccountItem`: D1 永続化済みの勘定科目データ（`statementId` 外部キーを含む）。
 
 ## 2. 会計計算順序(厳守)
 1. 売上高(`revenue`)
@@ -47,3 +49,28 @@
 - 金額は円単位の整数を前提とし、必要に応じて正規化する。
 - 異常値(例: マイナス売上)は仕様に従って許容可否を明示し、エラー文言でユーザーに通知する。
 - `accounting` と `finance` は検証済みデータのみを受け取り、副作用を持たない純粋関数として実装する。
+
+## 6. 永続化モデル（Cloudflare D1）
+### 6.1 テーブル定義
+- `financial_statements`
+  - `id`: INTEGER PK
+  - `fiscal_year`: INTEGER（会計年度）
+  - `invested_capital`: INTEGER（投下資本、円単位）
+  - `created_at`: TEXT（ISO8601 互換）
+  - `updated_at`: TEXT（ISO8601 互換）
+- `account_items`
+  - `id`: TEXT PK
+  - `statement_id`: INTEGER FK -> `financial_statements.id`
+  - `name`: TEXT（勘定科目名）
+  - `category`: TEXT（`AccountCategory`）
+  - `amount`: INTEGER（円単位）
+
+### 6.2 マッピング方針
+- `FinancialStatement.fiscalYear` -> `financial_statements.fiscal_year`
+- `FinancialStatement.investedCapital` -> `financial_statements.invested_capital`
+- `FinancialStatement.items[]` -> `account_items`（`statement_id` で親子関連付け）
+- 取得時は D1 レコードを再構成して `FinancialStatement` 互換へ戻す。
+
+### 6.3 永続化エラーハンドリング
+- D1 バインディング未設定（例: `DB` 不在）は設定エラーとして扱う。
+- SQL 実行失敗は永続化エラーとして扱い、API レイヤーで 5xx を返却する。

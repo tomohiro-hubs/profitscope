@@ -144,6 +144,21 @@ export interface DashboardData {
   monthly: MonthlyCalculationResult[];
 }
 
+/** 費用内訳チャートの表示モード。 */
+export type CostBreakdownMode = "category" | "item";
+
+/** ダッシュボード永続化データ。 */
+export interface DashboardPersistedState {
+  annualInput: FinancialStatement;
+  monthlyInput: MonthlyFinancialStatement;
+  roiProfitType: RoiProfitType;
+  taxMode: TaxSettings["mode"];
+  estimatedTaxRate: number;
+  isConsumptionTaxManual: boolean;
+  consumptionTaxAmount: Money;
+  costBreakdownMode: CostBreakdownMode;
+}
+
 /**
  * カテゴリ別集計マップ。
  * accounting/finance ロジック内部で中間表現として利用可能。

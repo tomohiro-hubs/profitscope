@@ -102,12 +102,46 @@ ProfitScope では、以下の損益計算フローを採用します。
 - データ永続化の強化（将来的な API / DB 連携）
 - CSV 入出力対応
 
-## 9. 独自前提（不明点に対して置いた前提）
+## 9. Cloudflare D1 設定手順（永続化対応）
+Cloudflare D1 を利用する場合は、以下の手順で設定します。
+
+1. D1 データベースを作成します。
+
+```bash
+npx wrangler d1 create profitscope-db
+```
+
+2. `wrangler.toml` に D1 バインディングを設定します（例: バインディング名 `DB`）。
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "profitscope-db"
+database_id = "<Cloudflareで払い出されたdatabase_id>"
+```
+
+3. スキーマを適用します。`docs/d1-schema.sql` をマイグレーションへ配置して実行してください。
+
+```bash
+npx wrangler d1 migrations apply profitscope-db --local
+npx wrangler d1 migrations apply profitscope-db --remote
+```
+
+4. 実行環境で利用する環境変数を設定します（ローカル `.dev.vars`、本番は Cloudflare ダッシュボード）。
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_DATABASE_ID`
+- `CLOUDFLARE_D1_API_TOKEN`
+
+5. API レイヤーでは入力を zod で検証したうえで D1 へ保存し、永続化失敗時は 5xx を返却します。
+6. 認証は D1 の `users` / `sessions` テーブルを利用します。パスワードは PBKDF2(SHA-256) のハッシュで保存します。
+
+## 10. 独自前提（不明点に対して置いた前提）
 - リポジトリ URL は環境ごとに異なるため、セットアップ例では `<repository-url>` をプレースホルダーとして記載。
 - テストランナーは AGENTS.md の方針に従い Vitest または Jest を採用可能とし、README では特定しない。
-- 初期段階の保存先は localStorage または JSON を許容し、永続 DB は将来拡張とする。
+- 初期段階の保存先は localStorage または JSON を許容しつつ、永続化拡張先として Cloudflare D1 を採用する。
 - 税金計算は初期実装で法人税等の直接入力を前提とし、概算税率計算はオプション扱いとする。
 
-## 10. サブエージェント並列実装について
+## 11. サブエージェント並列実装について
 本プロジェクトはサブエージェント分担による並列実装を前提に進行します。  
 Docs Agent はドキュメント整備（本 README を含む）を担当し、会計ロジック・UI・テストなどの他領域は担当エージェントが並列で実装します。
