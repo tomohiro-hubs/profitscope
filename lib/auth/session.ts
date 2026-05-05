@@ -45,7 +45,7 @@ const parseCookie = (cookieHeader: string | null): Record<string, string> => {
  * ログイン認証を行い、成功時はセッショントークンを発行する。
  */
 export const loginWithPassword = async (
-  config: D1Config,
+  config: D1Config | null,
   username: string,
   password: string,
 ): Promise<string | null> => {
@@ -89,7 +89,7 @@ export const loginWithPassword = async (
  * cookie からユーザーを取得し、認証状態を返す。
  */
 export const getUserByCookie = async (
-  config: D1Config,
+  config: D1Config | null,
   cookieHeader: string | null,
 ): Promise<{ userId: number; username: string } | null> => {
   const cookies = parseCookie(cookieHeader);
@@ -123,7 +123,7 @@ export const getUserByCookie = async (
 /**
  * ログアウト時にセッションを削除する。
  */
-export const deleteSessionByCookie = async (config: D1Config, cookieHeader: string | null): Promise<void> => {
+export const deleteSessionByCookie = async (config: D1Config | null, cookieHeader: string | null): Promise<void> => {
   const cookies = parseCookie(cookieHeader);
   const token = cookies[AUTH_COOKIE_NAME];
   if (!token) {

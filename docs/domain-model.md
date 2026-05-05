@@ -15,6 +15,9 @@
 - `DashboardData`: ダッシュボード最終出力。
 - `PersistedFinancialStatement`: D1 永続化済みの財務データ（`id`, `createdAt`, `updatedAt` を含む）。
 - `PersistedAccountItem`: D1 永続化済みの勘定科目データ（`statementId` 外部キーを含む）。
+- `DashboardPersistedState`: ダッシュボード入力状態の永続化モデル。
+- `users`: 認証ユーザー情報（`username`, `password_hash`, `password_salt`, `password_iterations`）。
+- `sessions`: ログインセッション情報（`token`, `user_id`, `expires_at`）。
 
 ## 2. 会計計算順序(厳守)
 1. 売上高(`revenue`)
@@ -52,25 +55,28 @@
 
 ## 6. 永続化モデル（Cloudflare D1）
 ### 6.1 テーブル定義
-- `financial_statements`
+- `dashboard_state`
+  - `id`: INTEGER PK（`id = 1` の単一レコード）
+  - `state_json`: TEXT（`DashboardPersistedState` を JSON 化）
+  - `updated_at`: TEXT（最終更新日時）
+- `users`
   - `id`: INTEGER PK
-  - `fiscal_year`: INTEGER（会計年度）
-  - `invested_capital`: INTEGER（投下資本、円単位）
-  - `created_at`: TEXT（ISO8601 互換）
-  - `updated_at`: TEXT（ISO8601 互換）
-- `account_items`
-  - `id`: TEXT PK
-  - `statement_id`: INTEGER FK -> `financial_statements.id`
-  - `name`: TEXT（勘定科目名）
-  - `category`: TEXT（`AccountCategory`）
-  - `amount`: INTEGER（円単位）
+  - `username`: TEXT UNIQUE
+  - `password_hash`: TEXT（PBKDF2 ハッシュ）
+  - `password_salt`: TEXT
+  - `password_iterations`: INTEGER
+- `sessions`
+  - `token`: TEXT PK
+  - `user_id`: INTEGER FK -> `users.id`
+  - `expires_at`: TEXT
+  - `created_at`: TEXT
 
 ### 6.2 マッピング方針
-- `FinancialStatement.fiscalYear` -> `financial_statements.fiscal_year`
-- `FinancialStatement.investedCapital` -> `financial_statements.invested_capital`
-- `FinancialStatement.items[]` -> `account_items`（`statement_id` で親子関連付け）
-- 取得時は D1 レコードを再構成して `FinancialStatement` 互換へ戻す。
+- 画面状態は `DashboardPersistedState` を `dashboard_state.state_json` へ保存する。
+- 認証時は `users` から `username` で検索し、PBKDF2 ハッシュ照合する。
+- 照合成功時は `sessions` にトークンを登録し、Cookie に設定する。
 
 ### 6.3 永続化エラーハンドリング
 - D1 バインディング未設定（例: `DB` 不在）は設定エラーとして扱う。
 - SQL 実行失敗は永続化エラーとして扱い、API レイヤーで 5xx を返却する。
+- 認証失敗（ユーザー不一致/パスワード不一致）は 401 を返却する。

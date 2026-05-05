@@ -56,9 +56,7 @@ import type {
 } from "@/types";
 
 const FISCAL_PERIOD_START_MONTH = 6;
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const IS_GITHUB_PAGES = process.env.NEXT_PUBLIC_IS_GITHUB_PAGES === "true";
-const LOGO_SRC = `${BASE_PATH}/profitscope-logo.png`;
+const LOGO_SRC = "/profitscope-logo.png";
 
 const createEmptyAnnualStatement = (): FinancialStatement => ({
   fiscalYear: new Date().getFullYear(),
@@ -374,11 +372,6 @@ export default function DashboardPage(): React.JSX.Element {
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
 
   useEffect(() => {
-    if (IS_GITHUB_PAGES) {
-      setIsCheckingAuth(false);
-      return;
-    }
-
     let isMounted = true;
 
     const verifyAuth = async (): Promise<void> => {
@@ -409,9 +402,7 @@ export default function DashboardPage(): React.JSX.Element {
   }, [router]);
 
   useEffect(() => {
-    if (isCheckingAuth || IS_GITHUB_PAGES) {
-      setHasLoadedServerState(true);
-      setIsInitialLoading(false);
+    if (isCheckingAuth) {
       return;
     }
 
@@ -491,7 +482,7 @@ export default function DashboardPage(): React.JSX.Element {
   }, [isCheckingAuth]);
 
   useEffect(() => {
-    if (!hasLoadedServerState || isCheckingAuth || IS_GITHUB_PAGES) {
+    if (!hasLoadedServerState || isCheckingAuth) {
       return;
     }
 
@@ -548,10 +539,6 @@ export default function DashboardPage(): React.JSX.Element {
   ]);
 
   const handleLogout = async (): Promise<void> => {
-    if (IS_GITHUB_PAGES) {
-      return;
-    }
-
     try {
       await logout();
     } catch {
@@ -894,15 +881,13 @@ export default function DashboardPage(): React.JSX.Element {
                   ))}
                 </select>
               </label>
-              {!IS_GITHUB_PAGES ? (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-700 hover:bg-slate-100"
-                >
-                  ログアウト
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm text-slate-700 hover:bg-slate-100"
+              >
+                ログアウト
+              </button>
 
               <div className="text-sm text-slate-700">
                 <p>税計算モード</p>

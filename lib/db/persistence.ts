@@ -51,7 +51,7 @@ ON CONFLICT(id) DO UPDATE SET
 /**
  * 永続化テーブルから最新のダッシュボード状態を取得する。
  */
-export const getLatestState = async (config: D1Config): Promise<DashboardPersistedState | null> => {
+export const getLatestState = async (config: D1Config | null): Promise<DashboardPersistedState | null> => {
   const rows = await queryD1(config, "SELECT state_json FROM dashboard_state WHERE id = 1 LIMIT 1");
 
   if (rows.length === 0) {
@@ -77,7 +77,7 @@ export const getLatestState = async (config: D1Config): Promise<DashboardPersist
  * ダッシュボード状態を単一レコードとして保存する。
  */
 export const saveLatestState = async (
-  config: D1Config,
+  config: D1Config | null,
   input: unknown,
 ): Promise<DashboardPersistedState> => {
   const parsed = dashboardPersistedStateSchema.safeParse(input);

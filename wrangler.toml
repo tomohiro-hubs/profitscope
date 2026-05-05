@@ -1,0 +1,17 @@
+name = "profitscope"
+main = ".open-next/worker.js"
+compatibility_date = "2026-05-05"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "profitscope"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "profitscope-db"
+database_id = "b50e0cb6-1839-473e-86c4-522be7f017c4"

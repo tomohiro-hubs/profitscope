@@ -12,13 +12,10 @@ const loginInputSchema = z.object({
 });
 
 const DB_NOT_CONFIGURED_MESSAGE =
-  "Cloudflare D1の接続情報が未設定です。CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN を設定してください。";
+  "Cloudflare D1の接続情報が未設定です。Workers の DB binding または D1 API 接続設定を確認してください。";
 
 export const POST = async (request: Request): Promise<Response> => {
   const config = getD1Config();
-  if (!config) {
-    return NextResponse.json({ error: DB_NOT_CONFIGURED_MESSAGE }, { status: 503 });
-  }
 
   try {
     const body = await request.json();
@@ -43,6 +40,7 @@ export const POST = async (request: Request): Promise<Response> => {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "ログイン処理に失敗しました。";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("未設定") ? 503 : 500;
+    return NextResponse.json({ error: status === 503 ? DB_NOT_CONFIGURED_MESSAGE : message }, { status });
   }
 };

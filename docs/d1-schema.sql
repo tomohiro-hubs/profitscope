@@ -29,8 +29,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 INSERT INTO users (username, password_hash, password_salt, password_iterations)
 VALUES (
   'yamazaki',
-  '5de2c4d5747e53eeaa16ff3b90ad598ce5cf04cb7c0713b3586e36abb05bf756',
+  'fefdeaf9c8fb0dc8e5cad94d62932a06136164202356e53d777c20b5c1ab3abf',
   '4267427585406c6cff6814328974bb88',
-  310000
+  100000
 )
 ON CONFLICT(username) DO NOTHING;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 const d1ApiResponseSchema = z.object({
   success: z.boolean(),
@@ -18,6 +19,16 @@ export interface D1Config {
   accountId: string;
   databaseId: string;
   apiToken: string;
+}
+
+interface D1PreparedStatement {
+  bind: (...values: Array<string | number | null>) => {
+    all: <T = unknown>() => Promise<{ results?: T[] }>;
+  };
+}
+
+interface D1DatabaseBinding {
+  prepare: (sql: string) => D1PreparedStatement;
 }
 
 /**
@@ -40,10 +51,27 @@ export const getD1Config = (): D1Config | null => {
  * Cloudflare D1 HTTP API に SQL を送信し、行データを返す。
  */
 export const queryD1 = async (
-  config: D1Config,
+  config: D1Config | null,
   sql: string,
   params: ReadonlyArray<string | number | null> = [],
 ): Promise<Array<Record<string, unknown>>> => {
+  try {
+    const cloudflare = await getCloudflareContext({ async: true });
+    const db = (cloudflare.env as { DB?: D1DatabaseBinding }).DB;
+    if (db) {
+      const result = await db.prepare(sql).bind(...params).all<Record<string, unknown>>();
+      return result.results ?? [];
+    }
+  } catch {
+    // Cloudflare コンテキストがない環境では HTTP API フォールバックを利用する。
+  }
+
+  if (!config) {
+    throw new Error(
+      "D1の接続設定が未設定です。WorkersのDB binding、または CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN を設定してください。",
+    );
+  }
+
   const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}/query`;
 
   const response = await fetch(url, {

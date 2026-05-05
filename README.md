@@ -11,7 +11,8 @@ ProfitScope は、決算可視化アプリ「ProfitScope」の実装プロジェ
 - チャート: Recharts
 - 状態管理: React 標準機能（`useState` / `useReducer` / Context）
 - バリデーション: zod
-- データ保存: localStorage または JSON（初期段階）
+- データ保存: Cloudflare D1
+- デプロイ基盤: Cloudflare Workers
 - テスト: Vitest または Jest
 - パッケージマネージャ: pnpm 推奨（npm でも可）
 
@@ -102,46 +103,95 @@ ProfitScope では、以下の損益計算フローを採用します。
 - データ永続化の強化（将来的な API / DB 連携）
 - CSV 入出力対応
 
-## 9. Cloudflare D1 設定手順（永続化対応）
-Cloudflare D1 を利用する場合は、以下の手順で設定します。
+## 9. Cloudflare Workers 完全移行手順
+本プロジェクトは GitHub Pages ではなく、Cloudflare Workers で運用します。
 
-1. D1 データベースを作成します。
+### 9.1 事前準備
+1. Cloudflare へログインします。
+
+```bash
+npx wrangler login
+npx wrangler whoami
+```
+
+2. D1 データベースを作成します。
 
 ```bash
 npx wrangler d1 create profitscope-db
 ```
 
-2. `wrangler.toml` に D1 バインディングを設定します（例: バインディング名 `DB`）。
+出力された `database_id` は次で利用します。
+
+### 9.2 `wrangler.toml` 作成
+プロジェクトルートに `wrangler.toml` を作成し、以下を設定します。
 
 ```toml
+name = "profitscope"
+main = ".open-next/worker.js"
+compatibility_date = "2026-05-05"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "profitscope-db"
-database_id = "<Cloudflareで払い出されたdatabase_id>"
+database_id = "b50e0cb6-1839-473e-86c4-522be7f017c4"
 ```
 
-3. スキーマを適用します。`docs/d1-schema.sql` をマイグレーションへ配置して実行してください。
+### 9.3 D1 マイグレーション
+`docs/d1-schema.sql` の SQL を `migrations/0001_init.sql` として配置し、ローカル/リモートへ適用します。
 
 ```bash
+mkdir -p migrations
+cp docs/d1-schema.sql migrations/0001_init.sql
 npx wrangler d1 migrations apply profitscope-db --local
 npx wrangler d1 migrations apply profitscope-db --remote
 ```
 
-4. 実行環境で利用する環境変数を設定します（ローカル `.dev.vars`、本番は Cloudflare ダッシュボード）。
+### 9.4 Secrets / 環境変数設定
+本アプリは Workers 実行時は `DB` binding を優先利用します。  
+ローカル Node 実行など binding が使えない環境では、以下の D1 HTTP API 設定でフォールバック可能です。
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_DATABASE_ID`
 - `CLOUDFLARE_D1_API_TOKEN`
 
-5. API レイヤーでは入力を zod で検証したうえで D1 へ保存し、永続化失敗時は 5xx を返却します。
-6. 認証は D1 の `users` / `sessions` テーブルを利用します。パスワードは PBKDF2(SHA-256) のハッシュで保存します。
+ローカル開発は `.dev.vars`、本番は Workers Secrets に設定します。
 
-## 10. 独自前提（不明点に対して置いた前提）
+```bash
+# フォールバック利用時のみ
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID
+npx wrangler secret put CLOUDFLARE_DATABASE_ID
+npx wrangler secret put CLOUDFLARE_D1_API_TOKEN
+```
+
+### 9.5 デプロイ
+Next.js を Workers へデプロイします。
+
+```bash
+npx opennextjs-cloudflare build
+npx wrangler deploy
+```
+
+### 9.6 ログインと認証
+- ログインAPI: `POST /api/auth/login`
+- 認証確認API: `GET /api/auth/me`
+- ログアウトAPI: `POST /api/auth/logout`
+- セッションは `sessions` テーブルで管理。
+- パスワードは PBKDF2(SHA-256) ハッシュを保存（平文保存なし）。
+
+### 9.7 動作確認
+1. `/login` でログインできること
+2. ダッシュボード編集で `PUT /api/statements/latest` が成功すること
+3. 再読み込み後に保存状態が復元されること
+
+## 10. GitHub Pages について
+GitHub Pages は静的配信のみで `app/api` を実行できないため、本プロジェクトの本番構成では使用しません。
+
+## 11. 独自前提（不明点に対して置いた前提）
 - リポジトリ URL は環境ごとに異なるため、セットアップ例では `<repository-url>` をプレースホルダーとして記載。
 - テストランナーは AGENTS.md の方針に従い Vitest または Jest を採用可能とし、README では特定しない。
-- 初期段階の保存先は localStorage または JSON を許容しつつ、永続化拡張先として Cloudflare D1 を採用する。
+- 本番環境は Cloudflare Workers + D1 のみを対象とする。
 - 税金計算は初期実装で法人税等の直接入力を前提とし、概算税率計算はオプション扱いとする。
 
-## 11. サブエージェント並列実装について
+## 12. サブエージェント並列実装について
 本プロジェクトはサブエージェント分担による並列実装を前提に進行します。  
 Docs Agent はドキュメント整備（本 README を含む）を担当し、会計ロジック・UI・テストなどの他領域は担当エージェントが並列で実装します。

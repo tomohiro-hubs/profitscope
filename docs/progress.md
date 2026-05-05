@@ -48,6 +48,28 @@
 - 失敗有無: なし
 - 備考: 他ワーカーの担当領域ファイルは未編集。
 
+## 追加進捗ログ（2026-05-05 / Cloudflare Workers 完全移行: Worker C）
+### オーケストレーター判断
+- 依頼: GitHub Pages を使わず、Cloudflare Workers へ完全移行するための手順書更新と検証補助。
+- 制約: Worker C は `README.md`, `docs/*`, `tests/*` のみ編集。
+- 方針: デプロイ手順を Workers 前提へ一本化し、認証ユーティリティの単体テストを追加して回帰を防止。
+
+### Worker C 実施内容
+- `[Worker C / Docs Agent]` `README.md` を更新し、Workers 完全移行手順（`wrangler login`, D1 migrate, secrets, deploy）を日本語で明記。
+- `[Worker C / Docs Agent]` GitHub Pages では API 非対応である注記を追加し、本番対象外を明確化。
+- `[Worker C / Architect Support]` `docs/architecture.md` に `lib/auth` と認証APIの依存方向を追記。
+- `[Worker C / Architect Support]` `docs/domain-model.md` を現行D1スキーマ（`dashboard_state`, `users`, `sessions`）に整合。
+- `[Worker C / Test Agent]` 認証ヘルパーの単体テストを追加（ハッシュ照合、Cookie 生成/削除）。
+
+### Worker C テスト結果
+- `npm test`: 成功
+- `npm run lint`: 成功
+
+### Worker C 完了判定
+- ステータス: 完了
+- 失敗有無: なし
+- 備考: 指定編集範囲のみ変更。
+
 ## 完了条件チェックリスト（Definition of Done）
 - [達成] アプリ「ProfitScope」がローカルで起動でき、サンプルデータで可視化画面が表示される。
 - [達成] 入力編集に応じて指標とグラフがリアルタイム更新される。
