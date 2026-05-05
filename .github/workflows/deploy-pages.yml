@@ -32,6 +32,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Remove API routes for static export
+        run: rm -rf app/api
+
       - name: Build static export
         run: npm run build
 

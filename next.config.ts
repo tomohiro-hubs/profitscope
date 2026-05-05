@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   assetPrefix: isGithubPages ? `/${repoName}/` : undefined,
   env: {
     NEXT_PUBLIC_BASE_PATH: isGithubPages ? `/${repoName}` : "",
+    NEXT_PUBLIC_IS_GITHUB_PAGES: isGithubPages ? "true" : "false",
   },
 };
 
